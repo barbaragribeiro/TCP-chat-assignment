@@ -7,6 +7,7 @@ class Msg:
     MSG = 5
     ORIGIN = 6
     PLANET = 7
+    CREQ = 8
 
     def __init__(self, src, dest, seq):
         self.id_source = src
@@ -45,6 +46,15 @@ class Decoder:
                 src, dest, seq = arg_list
                 planet = None
             return PlanetMsg(int(src), int(dest), int(seq), planet)
+        elif msg_type == Msg.CREQ:
+            arg_list = args.split("|")
+            if len(arg_list) == 4:
+                src, dest, seq, clients = arg_list
+                clients = clients.split()
+            else:
+                src, dest, seq = arg_list
+                clients = None
+            return CreqMsg(int(src), int(dest), int(seq), clients)
 
 
 class Encoder:
@@ -53,11 +63,11 @@ class Encoder:
 
     def encode(self, msg_type, src, dest, **kwargs):
         if msg_type == Msg.OK:
-            msg_seq = kwargs.get('seq')
-            return OkMsg(src, dest, msg_seq).encode()
+            seq = kwargs.get('seq')
+            return OkMsg(src, dest, seq).encode()
         elif msg_type == Msg.ERROR:
             seq = kwargs.get('seq')
-            return ErrorMsg(src, dest, msg_seq).encode()
+            return ErrorMsg(src, dest, seq).encode()
         self.seq += 1
         if msg_type == Msg.HI:
             return HiMsg(src, dest, 0).encode()
@@ -73,6 +83,8 @@ class Encoder:
             return OriginMsg(src, dest, self.seq, name_len, planet).encode()
         if msg_type == Msg.PLANET:
             return PlanetMsg(src, dest, self.seq).encode()
+        if msg_type == Msg.CREQ:
+            return CreqMsg(src, dest, self.seq).encode()
 
 class HiMsg(Msg):
     def __init__(self, src, dest, seq):
@@ -143,7 +155,7 @@ class MsgMsg(Msg):
 
 
 class OriginMsg(Msg):
-    def __init__(self, src, dest, seq, name_len, planet):
+    def __init__(self, src, dest, seq, name_len:int, planet:str):
         super(OriginMsg, self).__init__(src, dest, seq)
         self.planet = planet
         self.name_len = name_len
@@ -177,3 +189,26 @@ class PlanetMsg(Msg):
 
     def __str__(self):
         return f"planet of {self.id_source}: {self.planet}"
+
+
+class CreqMsg(Msg):
+    def __init__(self, src, dest, seq, clients=None):
+        super(CreqMsg, self).__init__(src, dest, seq)
+        self.clients = clients
+        self.type = Msg.CREQ
+
+    def set_clients(self, clients):
+        self.clients = [str(c) for c in clients]
+    
+    def encode(self):
+        if self.clients:
+            clients_str = " ".join(self.clients)
+            str_list = [str(self.type), str(self.id_source), str(self.id_dest), str(self.n_seq), clients_str]
+        else:
+            str_list = [str(self.type), str(self.id_source), str(self.id_dest), str(self.n_seq)]
+        msg_str = "|".join(str_list)
+        return msg_str.encode()
+
+    def __str__(self):
+        clients_str = " ".join(self.clients)
+        return f"clist: \"{clients_str}\""

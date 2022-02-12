@@ -4,7 +4,7 @@ import threading
 import traceback
 
 from messages import Decoder, Encoder, Msg, KillMsg
-import lib
+from lib import *
 
 
 class ClientInfo():
@@ -35,10 +35,10 @@ class Server():
         self.encoder = Encoder()
 
     def run_server(self):
-        print(f"Server is running on port {lib.SERVER_ID}")
+        print(f"Server is running on port {SERVER_ID}")
         while True:
             client_socket, addr = self.server.accept()
-            hi = self.decoder.decode(client_socket.recv(lib.BUFSZ))
+            hi = self.decoder.decode(client_socket.recv(BUFSZ))
             print(f"received {hi}")
 
             if hi.type != Msg.HI:
@@ -52,7 +52,7 @@ class Server():
     def handle_client(self, client_info):
         while client_info._running:
             try:
-                msg_str = client_info.socket.recv(lib.BUFSZ)
+                msg_str = client_info.socket.recv(BUFSZ)
                 if not msg_str:
                     break
                 msg = self.decoder.decode(msg_str)
@@ -70,36 +70,51 @@ class Server():
             print(f"received kill from {msg.id_source}")
             client = self.clients[msg.id_source]
             if client.pair is not None:
-                reply = KillMsg(lib.SERVER_ID, msg.id_source, msg.n_seq)
+                reply = KillMsg(SERVER_ID, msg.id_source, msg.n_seq)
                 self.clients[client.pair].socket.send(reply.encode())
                 self.clients[client.pair]._running = False
             self.send_ok(msg.id_source, msg.n_seq)
             client.socket.close()
             client._running = False
-
-        elif msg.type == Msg.MSG:
-            # Only emitters
-            print(f"sent message from {msg.id_source} to {msg.id_dest}")
-            self.forward(msg)
+            return
         
         elif msg.type == Msg.ORIGIN:
             print(f"received {msg.planet} from {msg.id_source}")
             self.clients[msg.id_source].set_planet(msg.planet)
             self.send_ok(msg.id_source, msg.n_seq)
+            return
 
+        if not self.clients[msg.id_source].emitter:
+            self.send_error(msg.id_dest, msg.n_seq)
+            return
+
+        if msg.type == Msg.MSG:
+            # Only emitters
+            print(f"sent message from {msg.id_source} to {msg.id_dest}")
+            self.forward(msg)
+            return
+            
         elif msg.type == Msg.PLANET:
             # Only emitters
             print(f"sent planet from {msg.id_source} to {msg.id_dest}")
             msg.set_planet(self.clients[msg.id_dest].planet)
             self.forward(msg)
             self.send_ok(msg.id_source, msg.n_seq)
-
+            return
+        
+        elif msg.type == Msg.CREQ:
+            # Only emitters
+            print(f"sent creq from {msg.id_source} to {msg.id_dest}")
+            msg.set_clients(self.clients.keys())
+            self.forward(msg)
+            self.send_ok(msg.id_source, msg.n_seq)
+            return
 
         else:
             return
 
     def forward(self, msg):
-        if (msg.id_dest not in self.clients) or (not self.clients[msg.id_source].emitter):
+        if msg.id_dest not in self.clients:
             self.send_error(msg.id_dest, msg.n_seq)
             return
         client = self.clients[msg.id_dest]
@@ -113,12 +128,12 @@ class Server():
 
 
     def send_error(self, dest_id, n_seq):
-        error_msg = self.encoder.encode(Msg.ERROR, lib.SERVER_ID, dest_id, seq=n_seq)
+        error_msg = self.encoder.encode(Msg.ERROR, SERVER_ID, dest_id, seq=n_seq)
         client = self.clients[dest_id].socket
         client.send(error_msg)
 
     def send_ok(self, dest_id, n_seq):
-        ok_msg = self.encoder.encode(Msg.OK, lib.SERVER_ID, dest_id, seq=n_seq)
+        ok_msg = self.encoder.encode(Msg.OK, SERVER_ID, dest_id, seq=n_seq)
         client = self.clients[dest_id].socket
         client.send(ok_msg)
 

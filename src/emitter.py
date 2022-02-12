@@ -17,6 +17,16 @@ class Emissor(Client):
         else:
             return self.exhibitor
 
+    def start(self):
+        try:
+            self.say_hi()
+            self.say_origin()
+        except Exception as e:
+            print(e)
+            print("[Closing...]")
+        self.run_recv()
+        self.run_send()
+
 if __name__ == '__main__':
     if (len(sys.argv) < 2):
         usage(sys.argv)
