@@ -6,7 +6,7 @@ from lib import *
 from messages import Decoder, Encoder, Msg, OkMsg
 
 
-# TODO: leitura por partes?
+# TODO: leitura por partes? numeros de sequencia
 
 class Client(ABC):
     def __init__(self, ip, port):

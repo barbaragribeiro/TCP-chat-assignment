@@ -42,7 +42,8 @@ class Server():
             print(f"received {hi}")
 
             if hi.type != Msg.HI:
-                # TODO: send_error(client_socket, addr[1], hi.n_seq)
+                error = self.encoder.encode(Msg.ERROR, SERVER_ID, hi.id_source, seq=hi.n_seq)
+                client_socket.send(error)
                 return
             else:
                 client_info = self.process_hi(hi, client_socket, addr)
@@ -186,14 +187,16 @@ class Server():
         # Emissor with an exhibitor associated to it
         elif hi.id_source >= 2**12 and hi.id_source < 2**13:
             if hi.id_source not in self.clients:
-                # TODO: send_error(client, addr[1], hi.n_seq)
+                error = self.encoder.encode(Msg.ERROR, SERVER_ID, hi.id_source, seq=hi.n_seq)
+                client_socket.send(error)
                 return
             new_id = self.send_id
             self.send_id += 1
             client_info = ClientInfo(new_id, client, emitter=True, pair=hi.id_source)
             print(f"[new emitter with id {new_id} linked to {hi.id_source}]")
         else:
-            # TODO: send_error(client, addr[1], hi.n_seq)
+            error = self.encoder.encode(Msg.ERROR, SERVER_ID, hi.id_source, seq=hi.n_seq)
+            client_socket.send(error)
             return
         
         self.clients[new_id] = client_info
