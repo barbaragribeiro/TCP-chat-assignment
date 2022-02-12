@@ -46,8 +46,9 @@ class Server():
                 return
             else:
                 client_info = self.process_hi(hi, client_socket, addr)
-                thread = threading.Thread(target=self.handle_client, args=(client_info,))
-                thread.start()
+                if client_info:
+                    thread = threading.Thread(target=self.handle_client, args=(client_info,))
+                    thread.start()
 
     def handle_client(self, client_info):
         while client_info._running:
@@ -70,8 +71,8 @@ class Server():
             print(f"received kill from {msg.id_source}")
             client = self.clients[msg.id_source]
             if client.pair is not None:
-                reply = KillMsg(SERVER_ID, msg.id_source, msg.n_seq)
-                self.clients[client.pair].socket.send(reply.encode())
+                reply = self.encoder.encode(Msg.KILL, SERVER_ID, msg.id_source)
+                self.clients[client.pair].socket.send(reply)
                 self.clients[client.pair]._running = False
             self.send_ok(msg.id_source, msg.n_seq)
             client.socket.close()
@@ -83,30 +84,48 @@ class Server():
             self.clients[msg.id_source].set_planet(msg.planet)
             self.send_ok(msg.id_source, msg.n_seq)
             return
-
-        if not self.clients[msg.id_source].emitter:
-            self.send_error(msg.id_dest, msg.n_seq)
+        
+        elif msg.type == Msg.OK:
+            print(f"ok from {msg.id_source}")
             return
-
+        
+        elif msg.type == Msg.ERROR:
+            print(f"error from {msg.id_source}")
+            return
+        
         if msg.type == Msg.MSG:
-            # Only emitters
             print(f"sent message from {msg.id_source} to {msg.id_dest}")
             self.forward(msg)
             return
             
+        elif msg.type == Msg.CREQ:
+            print(f"received creq from {msg.id_source} to {msg.id_dest}")
+            # Sent by emitters, destined to exhibitors
+            if (not self.clients[msg.id_source].emitter) or (msg.id_dest not in self.clients) or (self.clients[msg.id_dest].emitter):
+                self.send_error(msg.id_source, msg.n_seq)
+                return  
+            reply = self.encoder.encode(Msg.CLIST, SERVER_ID, msg.id_dest, n=len(self.clients), clients=self.clients.keys())
+            self.clients[msg.id_dest].socket.send(reply)
+            self.send_ok(msg.id_source, msg.n_seq)
+            return
+        
         elif msg.type == Msg.PLANET:
-            # Only emitters
-            print(f"sent planet from {msg.id_source} to {msg.id_dest}")
+            print(f"received planet from {msg.id_source} to {msg.id_dest}")
             msg.set_planet(self.clients[msg.id_dest].planet)
             self.forward(msg)
             self.send_ok(msg.id_source, msg.n_seq)
             return
         
-        elif msg.type == Msg.CREQ:
-            # Only emitters
-            print(f"sent creq from {msg.id_source} to {msg.id_dest}")
-            msg.set_clients(self.clients.keys())
-            self.forward(msg)
+        elif msg.type == Msg.PLANETLIST:
+            print(f"received planetlist from {msg.id_source} to {msg.id_dest}")
+            # Sent by emitters, destined to emitter's exhibitor
+            msg.id_dest = self.clients[msg.id_source].pair
+            if (not self.clients[msg.id_source].emitter) or (msg.id_dest is None):
+                self.send_error(msg.id_source, msg.n_seq)
+                return                
+            planets = [cinfo.planet for cid, cinfo in self.clients.items()]
+            msg.set_planets(planets)
+            self.clients[msg.id_dest].socket.send(msg.encode())
             self.send_ok(msg.id_source, msg.n_seq)
             return
 
@@ -114,13 +133,15 @@ class Server():
             return
 
     def forward(self, msg):
-        if msg.id_dest not in self.clients:
-            self.send_error(msg.id_dest, msg.n_seq)
+        # Sent by emitters, destined to valid ids 
+        if (not self.clients[msg.id_source].emitter) or (msg.id_dest not in self.clients):
+            self.send_error(msg.id_source, msg.n_seq)
             return
         client = self.clients[msg.id_dest]
         if client.emitter:
+            # Destined to an emitter with an exhibitor associated to it
             if client.pair is None:
-                self.send_error(msg.id_dest, msg.n_seq)
+                self.send_error(msg.id_source, msg.n_seq)
             else:
                 self.clients[client.pair].socket.send(msg.encode())
         else:

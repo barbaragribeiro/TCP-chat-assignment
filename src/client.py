@@ -6,7 +6,7 @@ from lib import *
 from messages import Decoder, Encoder, Msg, OkMsg
 
 
-# TODO: leitura por partes?
+# TODO: leitura por partes? broadcast
 
 class Client(ABC):
     def __init__(self, ip, port):
@@ -94,7 +94,7 @@ class Client(ABC):
                     self.client.send(msg)
                     self.client.close()
                     self._kill = True
-                elif msg.type == Msg.MSG:
+                elif (msg.type == Msg.MSG) or (msg.type == Msg.CLIST):
                     msg = self.encoder.encode(Msg.OK, self.cid, SERVER_ID, seq=msg.n_seq)
                     self.client.send(msg)
 
@@ -104,20 +104,25 @@ class Client(ABC):
         print("[recv stoped]")
 
     def encode_msg(self, msg, msg_type):
-        if msg_type == "kill":
-            return self.encoder.encode(Msg.KILL, self.cid, SERVER_ID)
-        elif msg_type == "msg":
-            _, dest, msg_len, msg_str = msg.split(" ", 3)
-            return self.encoder.encode(Msg.MSG, self.cid, dest, len=int(msg_len), msg=msg_str)
-        elif msg_type == "origin":
-            _, name_len, planet = msg.split(" ", 2)
-            return self.encoder.encode(Msg.ORIGIN, self.cid, SERVER_ID, len=int(name_len), planet=planet)
-        elif msg_type == "planet":
-            _, dest = msg.split(" ", 1)
-            return self.encoder.encode(Msg.PLANET, self.cid, dest)
-        elif msg_type == "creq":
-            _, dest = msg.split(" ", 1)
-            return self.encoder.encode(Msg.CREQ, self.cid, dest)
+        try:
+            if msg_type == "kill":
+                return self.encoder.encode(Msg.KILL, self.cid, SERVER_ID)
+            elif msg_type == "msg":
+                _, dest, msg_len, msg_str = msg.split(" ", 3)
+                return self.encoder.encode(Msg.MSG, self.cid, dest, len=int(msg_len), msg=msg_str)
+            elif msg_type == "origin":
+                _, name_len, planet = msg.split(" ", 2)
+                return self.encoder.encode(Msg.ORIGIN, self.cid, SERVER_ID, len=int(name_len), planet=planet)
+            elif msg_type == "planet":
+                _, dest = msg.split(" ", 1)
+                return self.encoder.encode(Msg.PLANET, self.cid, dest)
+            elif msg_type == "creq":
+                _, dest = msg.split(" ", 1)
+                return self.encoder.encode(Msg.CREQ, self.cid, dest)
+            elif msg_type == "planetlist":
+                return self.encoder.encode(Msg.PLANETLIST, self.cid, SERVER_ID)
+            else:
+                raise
 
-        else:
+        except:
             raise ValueError("[Invalid message]")

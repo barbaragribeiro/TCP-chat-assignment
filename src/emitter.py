@@ -21,11 +21,11 @@ class Emissor(Client):
         try:
             self.say_hi()
             self.say_origin()
+            self.run_recv()
+            self.run_send()
         except Exception as e:
             print(e)
             print("[Closing...]")
-        self.run_recv()
-        self.run_send()
 
 if __name__ == '__main__':
     if (len(sys.argv) < 2):
