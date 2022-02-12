@@ -95,7 +95,10 @@ class Server():
         
         if msg.type == Msg.MSG:
             print(f"sent message from {msg.id_source} to {msg.id_dest}")
-            self.forward(msg)
+            if msg.id_dest == 0:
+                self.broadcast(msg)
+            else:
+                self.forward(msg)
             return
             
         elif msg.type == Msg.CREQ:
@@ -146,6 +149,15 @@ class Server():
                 self.clients[client.pair].socket.send(msg.encode())
         else:
             client.socket.send(msg.encode())
+
+    def broadcast(self, msg):
+        # Sent by emitters
+        if not self.clients[msg.id_source].emitter:
+            self.send_error(msg.id_source, msg.n_seq)
+            return
+        for cid, cinfo in self.clients.items():
+            if not cinfo.emitter:
+                cinfo.socket.send(msg.encode())
 
 
     def send_error(self, dest_id, n_seq):

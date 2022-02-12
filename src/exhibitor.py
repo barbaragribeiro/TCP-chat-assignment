@@ -2,8 +2,6 @@ import sys
 
 from client import Client
 
-#TODO só deixar enviar msg de HI e ORIGIN?
-
 def usage(argv):
     print(f"usage: {argv[0]} <IP:port>")
     exit()

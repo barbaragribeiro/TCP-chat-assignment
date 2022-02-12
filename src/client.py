@@ -6,7 +6,7 @@ from lib import *
 from messages import Decoder, Encoder, Msg, OkMsg
 
 
-# TODO: leitura por partes? broadcast
+# TODO: leitura por partes?
 
 class Client(ABC):
     def __init__(self, ip, port):
