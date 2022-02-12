@@ -1,0 +1,2 @@
+BUFSZ = 1024
+SERVER_ID = 2**16 - 1
